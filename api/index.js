@@ -135,6 +135,31 @@ app.get('/api/news', async (req, res) => {
     }
 });
 
+// New endpoint for manual sync
+app.get('/api/news/sync', async (req, res) => {
+    try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const newsData = await fetchAllNews();
+
+        // Update cache
+        let newsCache = {};
+        try {
+            const cacheData = await fs.readFile(newsPath, 'utf8');
+            newsCache = JSON.parse(cacheData);
+        } catch (e) {
+            newsCache = {};
+        }
+
+        newsCache[todayStr] = newsData;
+        await fs.writeFile(newsPath, JSON.stringify(newsCache, null, 2));
+
+        res.status(200).json({ message: 'Sync successful', date: todayStr, data: newsData });
+    } catch (error) {
+        console.error('API ERROR: Sync failed:', error);
+        res.status(500).json({ error: 'Sync failed: ' + error.message });
+    }
+});
+
 // Fetch news from SERP API
 async function fetchAllNews() {
     const [globalNews, malaysiaNews, youtubeNews] = await Promise.all([

@@ -136,14 +136,17 @@ function renderColumn(type, container, countEl, countSuffix, isAI = false) {
     const items = currentNewsData[type] || [];
     const pState = paginationState[type];
 
-    // For AI feed, render all items inside a scrollable container
-    if (isAI) {
-        if (items.length > 0) {
-            let html = items.map(item => createNewsCard(item, isAI)).join('');
-            container.innerHTML = `<div class="ai-scrollable-feed">${html}</div>`;
-            countEl.textContent = `${countSuffix}${items.length}`;
-        } else {
-            container.innerHTML = `<div class="empty-state">
+    // Render items inside a scrollable container
+    if (items.length > 0) {
+        const visibleItems = isAI ? items : items.slice(0, pState.page * pState.limit);
+        let html = visibleItems.map(item => createNewsCard(item, isAI)).join('');
+        container.innerHTML = `<div class="scrollable-feed" id="feed-${type}" onscroll="handleScroll('${type}')">${html}</div>`;
+
+        let countText = isAI ? `${countSuffix}${items.length}` : (type === 'tech' ? `${String(items.length).padStart(2, '0')} ${countSuffix}` : `${items.length} ${countSuffix}`);
+        countEl.textContent = countText;
+
+    } else {
+        container.innerHTML = `<div class="empty-state">
                 <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="margin-bottom: 8px;">
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="12" y1="8" x2="12" y2="12"></line>
@@ -152,54 +155,44 @@ function renderColumn(type, container, countEl, countSuffix, isAI = false) {
                 <span>NO DATA ARCHIVED</span>
                 <span style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Historical feed unavailable for this date</span>
             </div>`;
-            countEl.textContent = `${countSuffix}0`;
-        }
-        return;
-    }
-
-    const totalPages = Math.ceil(items.length / pState.limit) || 1;
-
-    if (items.length > 0) {
-        const start = (pState.page - 1) * pState.limit;
-        const end = start + pState.limit;
-        const pageItems = items.slice(start, end);
-
-        let html = pageItems.map(item => createNewsCard(item, isAI)).join('');
-
-        if (totalPages > 1) {
-            html += `
-                <div class="pagination-controls">
-                    <button class="page-btn" onclick="changePage('${type}', -1)" ${pState.page === 1 ? 'disabled' : ''}>&larr; PREV</button>
-                    <span class="page-info">PAGE ${pState.page} / ${totalPages}</span>
-                    <button class="page-btn" onclick="changePage('${type}', 1)" ${pState.page === totalPages ? 'disabled' : ''}>NEXT &rarr;</button>
-                </div>
-            `;
-        }
-
-        container.innerHTML = html;
-        countEl.textContent = type === 'tech' ? `${String(items.length).padStart(2, '0')} ${countSuffix}` : `${items.length} ${countSuffix}`;
-    } else {
-        container.innerHTML = `<div class="empty-state">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" style="margin-bottom: 8px;">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            <span>NO DATA ARCHIVED</span>
-            <span style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Historical feed unavailable for this date</span>
-        </div>`;
-        countEl.textContent = type === 'tech' ? `00 ${countSuffix}` : `0 ${countSuffix}`;
+        countEl.textContent = `${countSuffix}0`;
     }
 }
 
-window.changePage = function (type, direction) {
-    paginationState[type].page += direction;
-    const containers = {
-        global: { c: globalNewsContainer, count: globalCount, suffix: 'REPORTS', isAI: false },
-        tech: { c: techNewsContainer, count: techCount, suffix: 'LOCAL', isAI: false },
-        ai: { c: aiNewsContainer, count: aiCount, suffix: 'TRENDING: ', isAI: true }
-    };
-    renderColumn(type, containers[type].c, containers[type].count, containers[type].suffix, containers[type].isAI);
+window.handleScroll = function (type) {
+    if (type === 'ai') return; // AI renders all at once currently
+
+    const feed = document.getElementById(`feed-${type}`);
+    if (!feed) return;
+
+    // Check if scrolled to bottom (within 20px)
+    if (feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 20) {
+        const items = currentNewsData[type] || [];
+        const pState = paginationState[type];
+
+        const totalPages = Math.ceil(items.length / pState.limit) || 1;
+        if (pState.page < totalPages) {
+            pState.page += 1;
+            // Re-render column to append new items
+            const containers = {
+                global: { c: globalNewsContainer, count: globalCount, suffix: 'REPORTS', isAI: false },
+                tech: { c: techNewsContainer, count: techCount, suffix: 'LOCAL', isAI: false }
+            };
+            if (containers[type]) {
+                const cData = containers[type];
+                renderColumn(type, cData.c, cData.count, cData.suffix, cData.isAI);
+
+                // Maintain scroll position after re-render by giving it a slight delay
+                setTimeout(() => {
+                    const updatedFeed = document.getElementById(`feed-${type}`);
+                    if (updatedFeed) {
+                        // Scroll slightly up so it doesn't trigger again instantly
+                        // Just enough to show new items
+                    }
+                }, 0);
+            }
+        }
+    }
 };
 
 // Create a news card HTML
@@ -214,11 +207,18 @@ function createNewsCard(item, isAI = false) {
     }
 
     let thumbnailHTML = '';
-    if (isAI && item.thumbnail) {
+    if (item.thumbnail) {
         thumbnailHTML = `
             <div class="news-thumbnail">
-                <img src="${item.thumbnail}" alt="Video Thumbnail">
+                <img src="${item.thumbnail}" alt="Thumbnail">
             </div>
+        `;
+    }
+
+    let descriptionHTML = '';
+    if (item.description) {
+        descriptionHTML = `
+            <p class="news-description">${item.description}</p>
         `;
     }
 
@@ -230,6 +230,7 @@ function createNewsCard(item, isAI = false) {
             </div>
             <h3 class="news-headline">${item.headline}</h3>
             ${thumbnailHTML}
+            ${descriptionHTML}
             <div class="news-card-footer">
                 <div class="viral-score">
                     <span class="viral-label">VIRAL SCORE</span>
@@ -289,6 +290,8 @@ function getSampleNews() {
             {
                 category: 'BREAKING',
                 headline: 'Quantum Supremacy: Global Banking Protocol Breach Detected',
+                description: 'Unprecedented anomalies detected across global financial networks. Intelligence agencies are investigating potential breaches in core cryptographic protocols. Immediate action is required to secure foundational digital assets across the hemisphere.',
+                thumbnail: 'https://images.unsplash.com/photo-1639322537228-f710d846310a?auto=format&fit=crop&q=80&w=400',
                 timestamp: new Date().toISOString(),
                 viralScore: 9.8,
                 url: '#'
@@ -296,6 +299,8 @@ function getSampleNews() {
             {
                 category: 'POLITICS',
                 headline: 'Mars Colony Charter Signed by 140 Nations',
+                description: 'Leaders from 140 nations convened today to sign the historic Mars Colony Charter, establishing sovereignty rules and resource sharing agreements for extra-planetary settlements in the upcoming decade.',
+                thumbnail: 'https://images.unsplash.com/photo-1614728263952-84ea256f9679?auto=format&fit=crop&q=80&w=400',
                 timestamp: new Date().toISOString(),
                 viralScore: 7.2,
                 url: '#'
@@ -303,8 +308,28 @@ function getSampleNews() {
             {
                 category: 'WORLD',
                 headline: 'Arctic Digital Infrastructure Hub Announced',
+                description: 'A coalition of tech giants has announced plans to build the largest cooling-efficient data center network in the Arctic circle, promising zero-emission computation power to support incoming AI loads.',
+                thumbnail: 'https://images.unsplash.com/photo-1541888045-8c764ee7119f?auto=format&fit=crop&q=80&w=400',
                 timestamp: new Date().toISOString(),
                 viralScore: 6.5,
+                url: '#'
+            },
+            {
+                category: 'BREAKING',
+                headline: 'European Central Bank Transitions to Fully Digital Currency',
+                description: 'The ECB has finalized its five-year transition, phasing out physical cash entirely. The new digital euro system utilizes advanced blockchain technology to ensure instant settlements and robust fraud protection.',
+                thumbnail: 'https://images.unsplash.com/photo-1621504450181-5d356f153325?auto=format&fit=crop&q=80&w=400',
+                timestamp: new Date().toISOString(),
+                viralScore: 8.9,
+                url: '#'
+            },
+            {
+                category: 'WORLD',
+                headline: 'New Oceanic Clean-up Fleet Recovers 1 Million Tons of Plastic',
+                description: 'The autonomous nautical drones deployed last year have hit a major milestone, clearing massive garbage patches in the Pacific and recycling the materials dynamically on board.',
+                thumbnail: 'https://images.unsplash.com/photo-1594514578842-feae2d89ae83?auto=format&fit=crop&q=80&w=400',
+                timestamp: new Date().toISOString(),
+                viralScore: 8.1,
                 url: '#'
             }
         ],
@@ -335,6 +360,7 @@ function getSampleNews() {
             {
                 category: 'LIVE STREAM',
                 headline: 'NVIDIA CEO Unveils \'Project Blackwell\' - The Last Human-Designed Architecture?',
+                thumbnail: 'https://i.ytimg.com/vi/pGU1W-F7oD0/hq720.jpg',
                 timestamp: new Date().toISOString(),
                 viralScore: 9.9,
                 viewers: '22.4K',
@@ -343,6 +369,7 @@ function getSampleNews() {
             {
                 category: 'SYNTHETIC MEDIA',
                 headline: 'The Rise of AI YouTubers: Why Real Humans are Losing the Algorithm War',
+                thumbnail: 'https://i.ytimg.com/vi/-OKcDp2H4eU/hq720.jpg',
                 timestamp: new Date().toISOString(),
                 viralScore: 8.1,
                 url: '#'
@@ -350,6 +377,7 @@ function getSampleNews() {
             {
                 category: 'AI',
                 headline: 'Claude 4 Passes Medical Board Exam with 99.7% Accuracy',
+                thumbnail: 'https://i.ytimg.com/vi/KldVQBAkjuo/hq720.jpg',
                 timestamp: new Date().toISOString(),
                 viralScore: 9.4,
                 url: '#'

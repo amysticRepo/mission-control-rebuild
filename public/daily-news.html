@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily News Module | OpenClaw Mission Control</title>
+    <title>Daily News Module | OpenClaw Mission Control V1 (By Joshua)</title>
     <link rel="stylesheet" href="style.css">
     <!-- Flatpickr for Date Selection -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -416,28 +416,28 @@
             color: var(--text-muted);
         }
 
-        /* AI Scrollable Feed */
-        .ai-scrollable-feed {
+        /* Scrollable Feed */
+        .scrollable-feed {
             max-height: calc(100vh - 250px);
             overflow-y: auto;
             padding-right: 8px;
         }
 
-        .ai-scrollable-feed::-webkit-scrollbar {
+        .scrollable-feed::-webkit-scrollbar {
             width: 4px;
         }
 
-        .ai-scrollable-feed::-webkit-scrollbar-track {
+        .scrollable-feed::-webkit-scrollbar-track {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 4px;
         }
 
-        .ai-scrollable-feed::-webkit-scrollbar-thumb {
+        .scrollable-feed::-webkit-scrollbar-thumb {
             background: var(--border-color);
             border-radius: 4px;
         }
 
-        .ai-scrollable-feed::-webkit-scrollbar-thumb:hover {
+        .scrollable-feed::-webkit-scrollbar-thumb:hover {
             background: var(--text-muted);
         }
 
@@ -460,6 +460,18 @@
 
         .news-card:hover .news-thumbnail img {
             transform: scale(1.05);
+        }
+
+        .news-description {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
         /* Pagination Controls */
@@ -730,7 +742,11 @@
                         <span class="badge-sync">GLOBAL SYNC</span>
                         <span class="badge-module">MODULE: NEWS_CENTRAL_01</span>
                     </div>
-                    <h1 class="news-title">DAILY NEWS <span>DASHBOARD</span></h1>
+                    <h1 class="news-title" style="display: flex; align-items: center; gap: 15px;">DAILY NEWS
+                        <span>DASHBOARD</span> <small
+                            style="font-size: 0.4em; color: var(--text-muted); font-weight: 500; font-family: var(--font-mono); margin-top: 5px;">V1
+                            (BY JOSHUA)</small>
+                    </h1>
                 </div>
                 <div class="news-header-right">
                     <div class="date-selector">
