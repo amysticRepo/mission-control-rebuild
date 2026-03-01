@@ -112,6 +112,16 @@ app.get('/api/news', async (req, res) => {
 
         const newsData = await fetchAllNews();
 
+        // If SERP returned no results across the board, expose meta so we can debug.
+        const allEmpty = (!newsData.global || newsData.global.length === 0)
+            && (!newsData.tech || newsData.tech.length === 0)
+            && (!newsData.ai || newsData.ai.length === 0);
+
+        if (allEmpty) {
+            const sample = getSampleNews();
+            return res.status(200).json({ ...sample, source: 'sample', error: 'SERP returned no results', meta: newsData.meta });
+        }
+
         // Cache the results
         newsCache[requestedDate] = newsData;
         await fs.writeFile(newsPath, JSON.stringify(newsCache, null, 2));
@@ -133,50 +143,87 @@ async function fetchAllNews() {
         fetchSerpYoutube('latest most viral video')
     ]);
 
+    // propagate meta so /api/news can show *why* SERP failed (without leaking keys)
+    const meta = {
+        global: globalNews.meta,
+        tech: malaysiaNews.meta,
+        ai: youtubeNews.meta
+    };
+
     return {
-        global: processNewsResults(globalNews, ['BREAKING', 'WORLD', 'POLITICS'], 10),
-        tech: processNewsResults(malaysiaNews, ['MALAYSIA', 'VIRAL', 'LOCAL'], 10),
-        ai: processNewsResults(youtubeNews, ['VIRAL', 'YOUTUBE', 'TRENDING'], 10)
+        global: processNewsResults(globalNews.results, ['BREAKING', 'WORLD', 'POLITICS'], 10),
+        tech: processNewsResults(malaysiaNews.results, ['MALAYSIA', 'VIRAL', 'LOCAL'], 10),
+        ai: processNewsResults(youtubeNews.results, ['VIRAL', 'YOUTUBE', 'TRENDING'], 10),
+        meta
     };
 }
 
 // Fetch from SERP API
 function fetchSerpNews(query) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const url = `https://serpapi.com/search.json?engine=google_news&q=${encodeURIComponent(query)}&api_key=${SERP_API_KEY}`;
 
         https.get(url, (response) => {
             let data = '';
             response.on('data', chunk => data += chunk);
             response.on('end', () => {
+                let parsed;
                 try {
-                    const parsed = JSON.parse(data);
-                    resolve(parsed.news_results || []);
+                    parsed = JSON.parse(data);
                 } catch (e) {
-                    resolve([]);
+                    return resolve({ results: [], meta: { ok: false, status: response.statusCode, error: 'SERP returned non-JSON response' } });
                 }
+
+                // SerpAPI often returns { error: "..." } or metadata statuses when something is wrong.
+                const apiError = parsed.error || parsed.search_metadata?.status;
+                if (response.statusCode && response.statusCode >= 400) {
+                    return resolve({
+                        results: [],
+                        meta: { ok: false, status: response.statusCode, error: apiError || `HTTP ${response.statusCode}` }
+                    });
+                }
+
+                if (apiError && apiError !== 'Success') {
+                    return resolve({ results: [], meta: { ok: false, status: response.statusCode, error: apiError } });
+                }
+
+                resolve({ results: parsed.news_results || [], meta: { ok: true, status: response.statusCode } });
             });
-        }).on('error', () => resolve([]));
+        }).on('error', (err) => resolve({ results: [], meta: { ok: false, status: 0, error: err.message || 'network error' } }));
     });
 }
 
 // Fetch from SERP API Youtube
 function fetchSerpYoutube(query) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const url = `https://serpapi.com/search.json?engine=youtube&search_query=${encodeURIComponent(query)}&api_key=${SERP_API_KEY}`;
 
         https.get(url, (response) => {
             let data = '';
             response.on('data', chunk => data += chunk);
             response.on('end', () => {
+                let parsed;
                 try {
-                    const parsed = JSON.parse(data);
-                    resolve(parsed.video_results || []);
+                    parsed = JSON.parse(data);
                 } catch (e) {
-                    resolve([]);
+                    return resolve({ results: [], meta: { ok: false, status: response.statusCode, error: 'SERP returned non-JSON response' } });
                 }
+
+                const apiError = parsed.error || parsed.search_metadata?.status;
+                if (response.statusCode && response.statusCode >= 400) {
+                    return resolve({
+                        results: [],
+                        meta: { ok: false, status: response.statusCode, error: apiError || `HTTP ${response.statusCode}` }
+                    });
+                }
+
+                if (apiError && apiError !== 'Success') {
+                    return resolve({ results: [], meta: { ok: false, status: response.statusCode, error: apiError } });
+                }
+
+                resolve({ results: parsed.video_results || [], meta: { ok: true, status: response.statusCode } });
             });
-        }).on('error', () => resolve([]));
+        }).on('error', (err) => resolve({ results: [], meta: { ok: false, status: 0, error: err.message || 'network error' } }));
     });
 }
 
