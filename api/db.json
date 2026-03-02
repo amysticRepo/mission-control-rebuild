@@ -237,6 +237,32 @@
       "createdAt": "2026-02-28T11:23:22.028086Z",
       "startedAt": "2026-02-28T11:23:22.028086Z",
       "completedAt": "2026-02-28T11:28:38.757173Z"
+    },
+    {
+      "id": 22,
+      "code": "MODEL-STATUS",
+      "title": "Neural Links: Model status view",
+      "description": "Add /api/model-status and UI badges for all configured models; cache+timeouts; navigation link.",
+      "priority": "high",
+      "estimate": "2h",
+      "status": "success",
+      "progress": 100,
+      "createdAt": "2026-03-02T05:33:20.095Z",
+      "updatedAt": "2026-03-02T05:35:20.969Z",
+      "completedAt": "2026-03-02T05:35:20.969Z"
+    },
+    {
+      "id": 23,
+      "code": "MODEL-STATUS-V2",
+      "title": "Neural Links: Model Status Dashboard (Build)",
+      "description": "Build model status dashboard: /api/model-status endpoint + neural-links UI. Show per-model OK / NOT_CONFIGURED / NO_CREDITS / RATE_LIMIT / ERROR. Cache results. Deploy to Vercel.",
+      "priority": "critical",
+      "estimate": "60m",
+      "status": "pending",
+      "progress": 0,
+      "progressLabel": "PENDING",
+      "tagType": "core",
+      "createdAt": "2026-03-02T05:34:49.707Z"
     }
   ],
   "systemStatus": {

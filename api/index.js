@@ -13,7 +13,8 @@ const PORT = process.env.PORT || 3000;
 let inMemoryNewsCache = null;
 
 // SERP API Configuration
-const SERP_API_KEY = process.env.SERP_API_KEY || 'b992be08b4f3550953414dc41fea5e7fa007b6a388237baec1284ed07dd52c39';
+// NOTE: do not hardcode API keys; rely on environment variables.
+const SERP_API_KEY = process.env.SERP_API_KEY;
 
 app.use(express.json());
 
@@ -44,6 +45,17 @@ async function writeNewsCache(cache) {
         console.warn('CACHE: Could not write to news-cache.json (expected on Vercel):', error.message);
     }
 }
+
+// API endpoint: model status
+app.get('/api/model-status', async (req, res) => {
+    try {
+        const handler = require('./model-status');
+        return handler(req, res);
+    } catch (error) {
+        console.error('API ERROR: /api/model-status:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 // API endpoint to serve task data
 app.get('/api/tasks', async (req, res) => {
@@ -135,6 +147,7 @@ async function fetchAllNews() {
 
 function fetchSerpNews(query) {
     return new Promise((resolve) => {
+        if (!SERP_API_KEY) return resolve([]);
         const url = `https://serpapi.com/search.json?engine=google_news&q=${encodeURIComponent(query)}&api_key=${SERP_API_KEY}`;
         https.get(url, (res) => {
             let data = '';
@@ -151,6 +164,7 @@ function fetchSerpNews(query) {
 
 function fetchSerpYoutube(query) {
     return new Promise((resolve) => {
+        if (!SERP_API_KEY) return resolve([]);
         const url = `https://serpapi.com/search.json?engine=youtube&search_query=${encodeURIComponent(query)}&api_key=${SERP_API_KEY}`;
         https.get(url, (res) => {
             let data = '';

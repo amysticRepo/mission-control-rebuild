@@ -213,6 +213,45 @@
             color: var(--text-secondary);
             flex: 1;
         }
+
+        .badge {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .badge.ok { background: rgba(0, 255, 136, 0.12); color: var(--accent-green); border-color: rgba(0,255,136,0.35); }
+        .badge.nc { background: rgba(255, 184, 0, 0.10); color: var(--accent-yellow); border-color: rgba(255,184,0,0.35); }
+        .badge.bill { background: rgba(255, 184, 0, 0.15); color: var(--accent-yellow); border-color: rgba(255,184,0,0.45); }
+        .badge.rate { background: rgba(0, 212, 255, 0.12); color: var(--accent-cyan); border-color: rgba(0,212,255,0.35); }
+        .badge.auth { background: rgba(255, 59, 92, 0.12); color: var(--accent-red); border-color: rgba(255,59,92,0.35); }
+        .badge.prov { background: rgba(170, 88, 255, 0.12); color: var(--accent-purple); border-color: rgba(170,88,255,0.35); }
+        .badge.unk { background: rgba(255, 255, 255, 0.06); color: var(--text-secondary); border-color: rgba(255,255,255,0.18); }
+
+        .model-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .model-id {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+        .model-provider {
+            font-family: var(--font-display);
+            font-size: 12px;
+            letter-spacing: 1px;
+            color: var(--accent-cyan);
+        }
     </style>
 </head>
 <body>
@@ -265,7 +304,17 @@
         <div class="page-content">
             <div class="page-header">
                 <h1 class="page-title">NEURAL LINKS</h1>
-                <p class="page-subtitle">Active Connections & Data Pathways • 7 Links Established</p>
+                <p class="page-subtitle">Active Connections & Data Pathways • Model telemetry now available</p>
+            </div>
+
+            <!-- Model Status -->
+            <div class="connection-log" style="margin-top: 0;">
+                <h3 class="log-title" id="model-status">MODEL STATUS</h3>
+                <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                    <button id="refreshModels" class="icon-btn" style="border:1px solid var(--border-color); padding:8px 12px; border-radius:10px; font-family: var(--font-mono); font-size: 12px;">REFRESH</button>
+                    <span id="modelMeta" style="color: var(--text-muted); font-size: 12px;"></span>
+                </div>
+                <div id="modelStatusGrid" class="links-grid" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));"></div>
             </div>
 
             <!-- Links Grid -->
@@ -459,5 +508,66 @@
             </div>
         </footer>
     </div>
+
+    <script>
+        function badgeClass(status) {
+            switch (status) {
+                case 'OK': return 'ok';
+                case 'NOT_CONFIGURED': return 'nc';
+                case 'BILLING/NO_CREDITS': return 'bill';
+                case 'RATE_LIMIT': return 'rate';
+                case 'AUTH_ERROR': return 'auth';
+                case 'PROVIDER_ERROR': return 'prov';
+                default: return 'unk';
+            }
+        }
+
+        function safe(s) {
+            return String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        async function loadModelStatus(force = false) {
+            const grid = document.getElementById('modelStatusGrid');
+            const meta = document.getElementById('modelMeta');
+            grid.innerHTML = '';
+            meta.textContent = 'Loading…';
+
+            try {
+                const url = force ? '/api/model-status?refresh=true' : '/api/model-status';
+                const res = await fetch(url, { cache: 'no-store' });
+                const data = await res.json();
+
+                meta.textContent = `Updated ${data.ts} • cached=${data.cached} • age=${data.ageMs}ms`;
+
+                const models = (data.models || []).slice().sort((a,b)=> (a.provider||'').localeCompare(b.provider||'') || (a.id||'').localeCompare(b.id||''));
+
+                grid.innerHTML = models.map(m => {
+                    const cls = badgeClass(m.status);
+                    return `
+                        <div class="link-card">
+                            <div class="link-header" style="margin-bottom: 12px;">
+                                <span class="model-provider">${safe(m.provider).toUpperCase()}</span>
+                                <span class="badge ${cls}">${safe(m.status)}</span>
+                            </div>
+                            <div class="model-row">
+                                <div class="model-id" title="${safe(m.id)}">${safe(m.id)}</div>
+                            </div>
+                            <div style="margin-top: 10px; color: var(--text-muted); font-size: 11px; font-family: var(--font-mono);">${safe(m.detail || '')}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                if (!models.length) {
+                    grid.innerHTML = `<div class="link-card"><div class="link-header"><span class="link-title">No models found</span></div><div class="log-message">The backend returned an empty model list.</div></div>`;
+                }
+            } catch (e) {
+                meta.textContent = 'Failed to load /api/model-status';
+                grid.innerHTML = `<div class="link-card"><div class="link-header"><span class="link-title">ERROR</span></div><div class="log-message">${safe(e.message || e)}</div></div>`;
+            }
+        }
+
+        document.getElementById('refreshModels')?.addEventListener('click', () => loadModelStatus(true));
+        loadModelStatus(false);
+    </script>
 </body>
 </html>
