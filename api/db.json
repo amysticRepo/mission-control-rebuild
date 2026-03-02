@@ -295,6 +295,21 @@
       "createdAt": "2026-03-02T05:55:28.034Z",
       "startedAt": "2026-03-02T05:56:33.066Z",
       "completedAt": "2026-03-02T05:56:33.066Z"
+    },
+    {
+      "id": 26,
+      "code": "MODEL-INVENTORY",
+      "title": "Model Status: Use all configured models + add Nexos probe",
+      "description": "Update /api/model-status to include all configured models from agents.defaults.models, group by provider, and implement Nexos health probe so Nexos models are checked (not \"no probe\").",
+      "priority": "critical",
+      "estimate": "60m",
+      "status": "success",
+      "progress": 100,
+      "progressLabel": "COMPLETE",
+      "tagType": "core",
+      "createdAt": "2026-03-02T10:54:16.764Z",
+      "startedAt": "2026-03-02T10:54:16.764Z",
+      "completedAt": "2026-03-02T10:56:00.000Z"
     }
   ],
   "systemStatus": {

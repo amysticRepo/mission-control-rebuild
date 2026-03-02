@@ -156,6 +156,44 @@ async function probePerplexity() {
   return statusFromHttp('perplexity', resp);
 }
 
+async function probeNexos() {
+  const key = process.env.NEXOS_API_KEY;
+  if (!key) return { status: 'NOT_CONFIGURED', detail: 'NEXOS_API_KEY missing' };
+
+  // Nexos exposes an OpenAI-compatible surface.
+  // Use a minimal chat completion request (small token count) to validate auth/billing.
+  const url = 'https://api.nexos.ai/openai/v1/chat/completions';
+  const body = JSON.stringify({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: 'ping' }],
+    max_tokens: 1,
+  });
+
+  const resp = await new Promise((resolve, reject) => {
+    const req = https.request(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', (c) => (data += c));
+      res.on('end', () => {
+        let parsed = null;
+        try { parsed = data ? JSON.parse(data) : null; } catch { /* ignore */ }
+        resolve({ status: res.statusCode || 0, headers: res.headers, body: data, json: parsed });
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+
+  return statusFromHttp('nexos', resp);
+}
+
 const PROVIDER_PROBES = {
   openai: probeOpenAI,
   anthropic: probeAnthropic,
@@ -167,6 +205,7 @@ const PROVIDER_PROBES = {
   cohere: probeCohere,
   xai: probeXAI,
   perplexity: probePerplexity,
+  nexos: probeNexos,
 };
 
 function guessProvider(modelId) {
@@ -204,46 +243,35 @@ function groupByProvider(models) {
   return out;
 }
 
+const path = require('path');
+const fs = require('fs');
+
 function getConfiguredModels() {
-  // Minimal representation of OpenClaw config "models" structure.
-  // Keep this list in sync with what Mission Control expects.
-  return {
-    defaults: {
-      defaultModel: process.env.OPENCLAW_DEFAULT_MODEL || process.env.DEFAULT_MODEL || 'openrouter/openrouter/auto',
-      imageModel: process.env.OPENCLAW_IMAGE_MODEL || process.env.IMAGE_MODEL || 'openai/gpt-image-1',
-      transcriptionModel: process.env.OPENCLAW_TRANSCRIPTION_MODEL || process.env.TRANSCRIPTION_MODEL || 'openai/whisper-1',
-    },
-    providers: {
-      openai: {
-        models: [
-          'openai/gpt-4o-mini',
-          'openai/gpt-4o',
-          'openai/gpt-image-1',
-          'openai/whisper-1',
-        ],
-      },
-      anthropic: {
-        models: ['anthropic/claude-3-5-sonnet-20241022', 'anthropic/claude-opus-4-6'],
-      },
-      openrouter: {
-        models: ['openrouter/openrouter/auto', 'openrouter/openrouter/free'],
-      },
-      google: {
-        models: ['google/gemini-1.5-flash', 'google/gemini-1.5-pro'],
-      },
-      nexos: {
-        models: ['nexos/gpt-5.2'],
-      },
-      opencode: {
-        // OpenClaw internal/compat model IDs sometimes come from opencode.
-        models: ['opencode/gpt-5.2'],
-      },
-      other: {
-        // Non-bucketed providers can still be listed here for visibility.
-        models: ['deepseek/deepseek-chat', 'deepseek/deepseek-reasoner', 'groq/llama-3.1-70b-versatile', 'mistral/mistral-large-latest', 'cohere/command-r-plus', 'xai/grok-2', 'perplexity/sonar'],
-      },
-    },
+  // Vercel cannot read OpenClaw config at runtime.
+  // We ship a checked-in snapshot of configured models (generated from OpenClaw config at build/dev time).
+  const defaults = {
+    defaultModel: process.env.OPENCLAW_DEFAULT_MODEL || process.env.DEFAULT_MODEL || 'openrouter/openrouter/auto',
+    imageModel: process.env.OPENCLAW_IMAGE_MODEL || process.env.IMAGE_MODEL || 'openai/gpt-image-1',
+    transcriptionModel: process.env.OPENCLAW_TRANSCRIPTION_MODEL || process.env.TRANSCRIPTION_MODEL || 'openai/whisper-1',
   };
+
+  const listPath = path.join(__dirname, 'model-list.json');
+  let list = { models: [] };
+  try {
+    list = JSON.parse(fs.readFileSync(listPath, 'utf8'));
+  } catch {
+    // Fallback: keep server alive even if the list is missing.
+    list = { models: [] };
+  }
+
+  const providers = {};
+  for (const m of list.models || []) {
+    const p = guessProvider(m.id);
+    if (!providers[p]) providers[p] = { models: [] };
+    providers[p].models.push(m.id);
+  }
+
+  return { defaults, providers };
 }
 
 async function handler(req, res) {
