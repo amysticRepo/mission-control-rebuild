@@ -258,11 +258,13 @@
       "description": "Build model status dashboard: /api/model-status endpoint + neural-links UI. Show per-model OK / NOT_CONFIGURED / NO_CREDITS / RATE_LIMIT / ERROR. Cache results. Deploy to Vercel.",
       "priority": "critical",
       "estimate": "60m",
-      "status": "pending",
+      "status": "success",
       "progress": 100,
-      "progressLabel": "PENDING",
+      "progressLabel": "COMPLETE",
       "tagType": "core",
-      "createdAt": "2026-03-02T05:34:49.707Z"
+      "createdAt": "2026-03-02T05:34:49.707Z",
+      "startedAt": "2026-03-02T06:24:38.094Z",
+      "completedAt": "2026-03-02T06:25:53.009Z"
     },
     {
       "id": 24,
