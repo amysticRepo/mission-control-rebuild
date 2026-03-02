@@ -278,6 +278,21 @@
       "createdAt": "2026-03-02T05:48:38.166Z",
       "updatedAt": "2026-03-02T05:50:33.496Z",
       "completedAt": "2026-03-02T05:50:33.496Z"
+    },
+    {
+      "id": 25,
+      "code": "PROVIDER-CURL",
+      "title": "Provider Curl Healthcheck Script",
+      "description": "Build a CLI/curl-based healthcheck for all model providers (openrouter, nexos, google, anthropic, openai, etc.) using API keys env vars. Group output by provider, list models, and show status (OK / NO_CREDITS / RATE_LIMIT / AUTH / ERROR).",
+      "priority": "high",
+      "estimate": "45m",
+      "status": "success",
+      "progress": 100,
+      "progressLabel": "COMPLETE",
+      "tagType": "proc",
+      "createdAt": "2026-03-02T05:55:28.034Z",
+      "startedAt": "2026-03-02T05:56:33.066Z",
+      "completedAt": "2026-03-02T05:56:33.066Z"
     }
   ],
   "systemStatus": {
