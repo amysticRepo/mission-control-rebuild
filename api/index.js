@@ -57,6 +57,17 @@ app.get('/api/model-status', async (req, res) => {
     }
 });
 
+// API endpoint: model status grouped by provider
+app.get('/api/model-status/providers', async (req, res) => {
+    try {
+        const handler = require('./model-status-providers');
+        return handler(req, res);
+    } catch (error) {
+        console.error('API ERROR: /api/model-status/providers:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // API endpoint to serve task data
 app.get('/api/tasks', async (req, res) => {
     try {

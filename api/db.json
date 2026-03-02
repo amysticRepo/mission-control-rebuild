@@ -259,10 +259,25 @@
       "priority": "critical",
       "estimate": "60m",
       "status": "pending",
-      "progress": 0,
+      "progress": 100,
       "progressLabel": "PENDING",
       "tagType": "core",
       "createdAt": "2026-03-02T05:34:49.707Z"
+    },
+    {
+      "id": 24,
+      "code": "MODEL-PROVIDERS",
+      "title": "Neural Links: Group Model Status by Provider",
+      "description": "Update Model Status UI/API to group models by provider (nexos, google, openrouter, anthropic, openai, etc.) and list current configured model names under each provider.",
+      "priority": "high",
+      "estimate": "30m",
+      "status": "success",
+      "progress": 100,
+      "progressLabel": "DONE",
+      "tagType": "core",
+      "createdAt": "2026-03-02T05:48:38.166Z",
+      "updatedAt": "2026-03-02T05:50:33.496Z",
+      "completedAt": "2026-03-02T05:50:33.496Z"
     }
   ],
   "systemStatus": {

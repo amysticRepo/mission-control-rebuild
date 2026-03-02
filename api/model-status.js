@@ -170,19 +170,38 @@ const PROVIDER_PROBES = {
 };
 
 function guessProvider(modelId) {
-  if (!modelId || typeof modelId !== 'string') return 'unknown';
-  const s = modelId.toLowerCase();
-  if (s.startsWith('openai/')) return 'openai';
-  if (s.startsWith('anthropic/')) return 'anthropic';
-  if (s.startsWith('openrouter/')) return 'openrouter';
-  if (s.startsWith('google/')) return 'google';
-  if (s.startsWith('deepseek/')) return 'deepseek';
-  if (s.startsWith('groq/')) return 'groq';
-  if (s.startsWith('mistral/')) return 'mistral';
-  if (s.startsWith('cohere/')) return 'cohere';
-  if (s.startsWith('xai/')) return 'xai';
-  if (s.startsWith('perplexity/')) return 'perplexity';
-  return 'unknown';
+  // Determine provider by model name prefix before first '/'
+  // Required buckets: openrouter, nexos, google, anthropic, openai, opencode, other.
+  if (!modelId || typeof modelId !== 'string') return 'other';
+  const prefix = modelId.split('/')[0]?.toLowerCase() || '';
+  const buckets = new Set(['openrouter', 'nexos', 'google', 'anthropic', 'openai', 'opencode']);
+  return buckets.has(prefix) ? prefix : 'other';
+}
+
+function groupByProvider(models) {
+  const out = {
+    openrouter: { models: [], statusCounts: {} },
+    nexos: { models: [], statusCounts: {} },
+    google: { models: [], statusCounts: {} },
+    anthropic: { models: [], statusCounts: {} },
+    openai: { models: [], statusCounts: {} },
+    opencode: { models: [], statusCounts: {} },
+    other: { models: [], statusCounts: {} },
+  };
+
+  for (const m of models || []) {
+    const p = guessProvider(m.id);
+    const bucket = out[p] || out.other;
+    bucket.models.push(m);
+    const k = m.status || 'UNKNOWN';
+    bucket.statusCounts[k] = (bucket.statusCounts[k] || 0) + 1;
+  }
+
+  for (const p of Object.keys(out)) {
+    out[p].models.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  }
+
+  return out;
 }
 
 function getConfiguredModels() {
@@ -212,23 +231,16 @@ function getConfiguredModels() {
       google: {
         models: ['google/gemini-1.5-flash', 'google/gemini-1.5-pro'],
       },
-      deepseek: {
-        models: ['deepseek/deepseek-chat', 'deepseek/deepseek-reasoner'],
+      nexos: {
+        models: ['nexos/gpt-5.2'],
       },
-      groq: {
-        models: ['groq/llama-3.1-70b-versatile'],
+      opencode: {
+        // OpenClaw internal/compat model IDs sometimes come from opencode.
+        models: ['opencode/gpt-5.2'],
       },
-      mistral: {
-        models: ['mistral/mistral-large-latest'],
-      },
-      cohere: {
-        models: ['cohere/command-r-plus'],
-      },
-      xai: {
-        models: ['xai/grok-2'],
-      },
-      perplexity: {
-        models: ['perplexity/sonar'],
+      other: {
+        // Non-bucketed providers can still be listed here for visibility.
+        models: ['deepseek/deepseek-chat', 'deepseek/deepseek-reasoner', 'groq/llama-3.1-70b-versatile', 'mistral/mistral-large-latest', 'cohere/command-r-plus', 'xai/grok-2', 'perplexity/sonar'],
       },
     },
   };
@@ -249,7 +261,7 @@ async function handler(req, res) {
       for (const m of models || []) allModels.push({ id: m, provider: provider || guessProvider(m) });
     }
 
-    const providersUsed = Array.from(new Set(allModels.map(m => guessProvider(m.id)).filter(p => p !== 'unknown')));
+    const providersUsed = Array.from(new Set(allModels.map(m => guessProvider(m.id)).filter(p => p !== 'other')));
 
     const providerResults = {};
     await Promise.all(
@@ -279,6 +291,7 @@ async function handler(req, res) {
       defaults: config.defaults,
       providers: providerResults,
       models,
+      providersGrouped: groupByProvider(models),
     };
 
     cache = { ts: now(), payload };
