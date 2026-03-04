@@ -52,6 +52,12 @@ async function loadModelStatus(force = false) {
       const total = sumCounts(bucket.statusCounts);
       const ok = (bucket.statusCounts || {}).OK || 0;
 
+      // Extract billing/account info
+      const providerSpecificInfo = data.providers[p]; // Access raw probe results per provider
+      const creditBalance = providerSpecificInfo?.account?.credit_balance ?? providerSpecificInfo?.billing?.usage?.cost ?? 'N/A';
+      const accountPlan = providerSpecificInfo?.account?.plan ?? providerSpecificInfo?.billing?.billing_status ?? 'N/A';
+      const accountEmail = providerSpecificInfo?.account?.email ?? providerSpecificInfo?.billing?.account?.email ?? 'N/A';
+
       const modelsHtml = (bucket.models || []).map((m) => {
         const cls = badgeClass(m.status);
         return `
@@ -71,6 +77,13 @@ async function loadModelStatus(force = false) {
           <div style="color: var(--text-muted); font-size: 11px; font-family: var(--font-mono); margin-bottom: 10px;">
             ${Object.entries(bucket.statusCounts || {}).map(([k, v]) => `${safe(k)}=${safe(v)}`).join(' • ') || 'No data'}
           </div>
+          ${ p === 'openrouter' || p === 'openai' || p === 'anthropic' ? `
+            <div style="margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 12px; color: var(--text-muted); font-size: 11px; font-family: var(--font-mono);">
+              <span style="color: var(--accent-cyan);">Balance:</span> ${safe(creditBalance)}<br>
+              <span style="color: var(--accent-cyan);">Plan:</span> ${safe(accountPlan)}<br>
+              ${accountEmail !== 'N/A' ? `<span style="color: var(--accent-cyan);">Email:</span> ${safe(accountEmail)}<br>` : ''}
+            </div>
+          ` : ''}
           <div>${modelsHtml}</div>
         </div>
       `;
