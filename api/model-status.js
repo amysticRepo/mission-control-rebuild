@@ -66,32 +66,97 @@ function statusFromHttp(provider, resp) {
 async function probeOpenAI() {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return { status: 'NOT_CONFIGURED', detail: 'OPENAI_API_KEY missing' };
-  const resp = await httpJson('https://api.openai.com/v1/models', {
+  
+  // First check models endpoint
+  const modelsResp = await httpJson('https://api.openai.com/v1/models', {
     headers: { Authorization: `Bearer ${key}` },
   });
-  return statusFromHttp('openai', resp);
+  
+  // Also get billing info
+  let billingInfo = null;
+  try {
+    const billingResp = await httpJson('https://api.openai.com/v1/dashboard/billing/subscription', {
+      headers { Authorization: `Bearer ${key}` },
+    });
+    if (billingResp.status === 200 && billingResp.json) {
+      billingInfo = {
+        credit_balance: billingResp.json.hard_limit_usd,
+        billing_plan: billingResp.json.plan_name,
+        account_name: billingResp.json.account_name,
+      };
+    }
+  } catch (e) {
+    // Billing endpoint might not be available or user might not have access
+  }
+  
+  const status = statusFromHttp('openai', modelsResp);
+  return { ...status, billing: billingInfo };
 }
 
 async function probeAnthropic() {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return { status: 'NOT_CONFIGURED', detail: 'ANTHROPIC_API_KEY missing' };
-  // Minimal endpoint
-  const resp = await httpJson('https://api.anthropic.com/v1/models?limit=1', {
+  
+  // Get models
+  const modelsResp = await httpJson('https://api.anthropic.com/v1/models?limit=1', {
     headers: {
       'x-api-key': key,
       'anthropic-version': '2023-06-01',
     },
   });
-  return statusFromHttp('anthropic', resp);
+  
+  // Get billing info (if available)
+  let billingInfo = null;
+  try {
+    const billingResp = await httpJson('https://api.anthropic.com/v1/billing', {
+      headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+    });
+    if (billingResp.status === 200 && billingResp.json) {
+      billingInfo = {
+        billing_status: billingResp.json.billing_status,
+        usage: billingResp.json.usage,
+        account: billingResp.json.account,
+      };
+    }
+  } catch (e) {
+    // Billing endpoint might not be available
+  }
+  
+  const status = statusFromHttp('anthropic', modelsResp);
+  return { ...status, billing: billingInfo };
 }
 
 async function probeOpenRouter() {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) return { status: 'NOT_CONFIGURED', detail: 'OPENROUTER_API_KEY missing' };
-  const resp = await httpJson('https://openrouter.ai/api/v1/models', {
+  
+  // Get models
+  const modelsResp = await httpJson('https://openrouter.ai/api/v1/models', {
     headers: { Authorization: `Bearer ${key}` },
   });
-  return statusFromHttp('openrouter', resp);
+  
+  // Get account info for balance
+  let accountInfo = null;
+  try {
+    const accountResp = await httpJson('https://openrouter.ai/api/v1/account', {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (accountResp.status === 200 && accountResp.json) {
+      accountInfo = {
+        credit_balance: accountResp.json.balance,
+        plan: accountResp.json.plan,
+        email: accountResp.json.email,
+      };
+    }
+  } catch (e) {
+    // Account endpoint might not be available
+  }
+  
+  const status = statusFromHttp('openrouter', modelsResp);
+  return { ...status, account: accountInfo };
 }
 
 async function probeGoogle() {

@@ -3,6 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const https = require('https');
 const app = express();
+const CACHE_TTL = 36000000; // 60 minutes
 
 // Paths
 const dbPath = path.resolve(process.cwd(), 'api', 'db.json');
